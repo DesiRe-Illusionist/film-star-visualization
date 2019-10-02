@@ -2,16 +2,18 @@
 function setup() {
     createCanvas(windowWidth, windowHeight);
     background(0);
+    actor = new Actor('velocity');
+    film = new Film();
+
+
 }
 
 
 let next = 0;
 function draw() {
     if (millis() > next) {
-        const actor = new Actor('velocity');
         actor.drawActor();
 
-        const film = new Film();
         film.drawFilm();
 
         next = millis() + 50;
@@ -49,18 +51,21 @@ class Particle {
             }
         }
         this.image.updatePixels();
-        image(this.image, this.posX, this.posY);
+        // image(this.image, this.posX, this.posY);
     }
 }
 
 class Actor extends Particle {
     constructor(velocity) {
-        super(100, 1.5, 100, 255, 100, 255, 100, 255, createVector(100, 100));
-        this.velocity = velocity;
+        super(100, 1.5, 100, 255, 0, 100, 0, 100, createVector(100, 100));
+        this.velocity = createVector(1, 1);
     }
 
     drawActor() {
         super.drawParticle();
+        this.posX += this.velocity.x;
+        this.posY += this.velocity.y;
+        image(this.image, this.posX, this.posY);
     }
 }
 
@@ -71,5 +76,6 @@ class Film extends Particle {
 
     drawFilm() {
         super.drawParticle();
+        image(this.image, this.posX, this.posY);
     }
 }
