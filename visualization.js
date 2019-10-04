@@ -1,3 +1,4 @@
+let APIkey = "77bcb8668e691d702f0e6870eb117283";
 
 function setup() {
     createCanvas(windowWidth, windowHeight);
@@ -78,4 +79,63 @@ class Film extends Particle {
         super.drawParticle();
         image(this.image, this.posX, this.posY);
     }
+}
+
+
+// actorID: ID of actor
+// return List of length 3 of film JSON objects
+function getFilmsOfActor(actorID) {
+  let url = "https://api.themoviedb.org/3/person/" + actorID + 
+  "/movie_credits?language=en-US&api_key=" + APIkey;
+  
+  let newFilms = callAPI(url);
+  let newFilmsList = new List();
+  
+  while (newFilmsList.length < 3) {
+    let possibleFilm = newFilms.cast[random(newFilms.cast.length)];
+    
+    if (!newFilmsList.has(possibleFilm)) {
+      newFilmsList.append(possibleFilm);
+    }
+  }
+  
+  return newFilmsList;
+}
+
+
+// get details of a film such as genre, popularity, etc.
+// filmID: id of film
+// return film details JSON: https://developers.themoviedb.org/3/movies/get-movie-details
+function getFilmDetails(filmID) {
+  let url = "https://api.themoviedb.org/3/movie/" + filmID + 
+  "?api_key=" + APIkey;
+  
+  return callAPI(url);
+}
+
+
+// get new actors from a film
+// filmID: id of film
+// return List of length 3 of actor JSON objects
+function getFilmCredits(filmID) {
+  let url = "https://api.themoviedb.org/3/movie/" + filmId + 
+  "/credits?api_key=" + APIkey;
+  
+  let newActors = callAPI(url);
+  let newActorsList = new List();
+  
+  while (newActorsList < 3) {
+    let possibleActor = newActors.cast[random(newActors.cast.length)];
+    
+    if (!newActorsList.has(possibleActor)) {
+      newActorsList.append(possibleActor);
+    }
+  }
+  
+  return newActorsList;
+}
+
+//helper function for asynchronous API calls
+function callAPI(url) {
+  return loadJSON(url);
 }
