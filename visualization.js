@@ -1,4 +1,6 @@
 let APIkey = "77bcb8668e691d702f0e6870eb117283";
+let started = false;
+let input, greeting;
 
 function setup() {
     createCanvas(windowWidth, windowHeight);
@@ -6,19 +8,40 @@ function setup() {
     actor = new Actor('velocity');
     film = new Film();
 
+    //ask user for input
+    input = createInput();
+    input.position(50,50);
+    
+    button = createButton('generate');
+    button.position(input.x + input.width, input.y);
+    button.mousePressed(start);
+    
 
 }
 
 
 let next = 0;
 function draw() {
-    if (millis() > next) {
+    if (started && millis() > next) {
         actor.drawActor();
 
         film.drawFilm();
 
         next = millis() + 50;
     }
+}
+
+// start the visualization
+function start() {
+  started = true;
+  let name = input.value();
+  
+  if (name != '') {
+    let url = 'https://api.themoviedb.org/3/search/person?include_adult=false&page=1&query=' + 
+    name + '&language=en-US&api_key=' + APIkey;
+    loadJSON(url, spawnFirstActor);
+    
+  }
 }
 
 class Particle {
@@ -88,18 +111,25 @@ function getFilmsOfActor(actorID) {
   let url = "https://api.themoviedb.org/3/person/" + actorID + 
   "/movie_credits?language=en-US&api_key=" + APIkey;
   
-  let newFilms = callAPI(url);
-  let newFilmsList = new List();
+  let newFilms = callAPI(url, spawnNewFilms);
+  
+}
+
+// callback function for spawning new films
+function spawnNewFilms(newFilms) {
+  console.log(newFilms);
+  let newFilmsList = [];
+  let listLength = Object.keys(newFilms.cast).length;
   
   while (newFilmsList.length < 3) {
-    let possibleFilm = newFilms.cast[random(newFilms.cast.length)];
+    let possibleFilm = newFilms.cast[int(random(listLength))];
     
-    if (!newFilmsList.has(possibleFilm)) {
-      newFilmsList.append(possibleFilm);
+    if (!newFilmsList.includes(possibleFilm)) {
+      newFilmsList.push(possibleFilm);
     }
   }
   
-  return newFilmsList;
+  //TO DO: Spawn new films here
 }
 
 
@@ -110,7 +140,14 @@ function getFilmDetails(filmID) {
   let url = "https://api.themoviedb.org/3/movie/" + filmID + 
   "?api_key=" + APIkey;
   
-  return callAPI(url);
+  callAPI(url, filmDetails);
+}
+
+// callback function for film details
+function newFilmDetails(filmDetails) {
+  
+  
+  //TO DO: use film details to populate stuff
 }
 
 
@@ -121,21 +158,49 @@ function getFilmCredits(filmID) {
   let url = "https://api.themoviedb.org/3/movie/" + filmId + 
   "/credits?api_key=" + APIkey;
   
-  let newActors = callAPI(url);
-  let newActorsList = new List();
+  let newActors = callAPI(url, spawnNewActors);
   
-  while (newActorsList < 3) {
-    let possibleActor = newActors.cast[random(newActors.cast.length)];
+}
+
+// callback function for getFilmCredits
+function spawnNewActors(newActors) {
+  let newActorsList = [];
+  let listLength = Object.keys(newActors.cast).length;
+  
+  while (newActorsList.length < 3) {
+    let possibleActor = newActors.cast[int(random(listLength))];
     
-    if (!newActorsList.has(possibleActor)) {
-      newActorsList.append(possibleActor);
+    if (!newActorsList.includes(possibleActor)) {
+      newActorsList.push(possibleActor);
     }
   }
   
-  return newActorsList;
+  //TO DO: spawn new actors here
+}
+
+
+function spawnFirstActor(people) {
+  console.log(people);
+  let listLength = Object.keys(people.results).length;
+  let possibleActor = people.results[int(random(listLength))];
+  let foundActor = false;
+  
+  while(!foundActor) {
+    console.log(possibleActor);
+    if (possibleActor.known_for_department == "Acting") {
+      foundActor = true;
+    } else {
+      possibleActor = people.results[int(random(listLength))];
+    }
+  }
+  
+  //TO DO: spawn first Actor
+  
+  getFilmsOfActor(possibleActor.id);
+  
 }
 
 //helper function for asynchronous API calls
-function callAPI(url) {
-  return loadJSON(url);
+function callAPI(url, callback) {
+  return loadJSON(url, callback);
 }
