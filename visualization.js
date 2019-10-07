@@ -1,12 +1,12 @@
 let APIkey = "77bcb8668e691d702f0e6870eb117283";
 let started = false;
 let input, greeting;
+let actorsManager = [];
+let filmsManager = [];
 
 function setup() {
     createCanvas(windowWidth, windowHeight);
     background(0);
-    actor = new Actor('velocity');
-    film = new Film();
 
     //ask user for input
     input = createInput();
@@ -15,33 +15,41 @@ function setup() {
     button = createButton('generate');
     button.position(input.x + input.width, input.y);
     button.mousePressed(start);
-    
-
 }
 
-
-let next = 0;
-function draw() {
-    if (started && millis() > next) {
-        actor.drawActor();
-
-        film.drawFilm();
-
-        next = millis() + 50;
-    }
+function createActorAndFilm(actorName) {
+    const getActorURL = 'https://api.themoviedb.org/3/search/person?include_adult=false&page=1&query=' + name + '&language=en-US&api_key=' + APIkey;
+    const actorObj = callAPI(getActorURL, spawnNewActor)
 }
 
 // start the visualization
 function start() {
-  started = true;
-  let name = input.value();
-  
-  if (name != '') {
-    let url = 'https://api.themoviedb.org/3/search/person?include_adult=false&page=1&query=' + 
-    name + '&language=en-US&api_key=' + APIkey;
-    loadJSON(url, spawnFirstActor);
+    started = true;
+    let name = input.value();
     
+    if (name != '') {
+        
+
+      let url = 'https://api.themoviedb.org/3/search/person?include_adult=false&page=1&query=' + 
+      name + '&language=en-US&api_key=' + APIkey;
+      loadJSON(url, spawnNewActor);
+    }
   }
+
+let next = 0;
+function draw() {
+    if (started && millis() > next) {
+        console.log(actorsManager);
+        actorsManager.forEach((actor) => {
+            console.log(actor);
+            actor.drawActor();
+        })
+
+        filmsManager.forEach((film) => {
+            console.log(film);
+            film.drawFilm();
+        })
+    }
 }
 
 class Particle {
@@ -80,56 +88,30 @@ class Particle {
 }
 
 class Actor extends Particle {
-    constructor(velocity) {
+    constructor(name, films) {
         super(100, 1.5, 100, 255, 0, 100, 0, 100, createVector(100, 100));
-        this.velocity = createVector(1, 1);
+        this.name = name;
+        this.films = films;
     }
 
     drawActor() {
         super.drawParticle();
-        this.posX += this.velocity.x;
-        this.posY += this.velocity.y;
+        //this.posX += this.velocity.x;
+        //this.posY += this.velocity.y;
         image(this.image, this.posX, this.posY);
     }
 }
 
 class Film extends Particle {
-    constructor() {
+    constructor(title) {
         super(400, 3, 100, 255, 100, 255, 100, 255, createVector(500, 300));
+        this.title = title;
     }
 
     drawFilm() {
         super.drawParticle();
         image(this.image, this.posX, this.posY);
     }
-}
-
-
-// actorID: ID of actor
-// return List of length 3 of film JSON objects
-function getFilmsOfActor(actorID) {
-  let url = "https://api.themoviedb.org/3/person/" + actorID + 
-  "/movie_credits?language=en-US&api_key=" + APIkey;
-  
-  let newFilms = callAPI(url, spawnNewFilms);
-  
-}
-
-// callback function for spawning new films
-function spawnNewFilms(newFilms) {
-  console.log(newFilms);
-  let newFilmsList = [];
-  let listLength = Object.keys(newFilms.cast).length;
-  
-  while (newFilmsList.length < 3) {
-    let possibleFilm = newFilms.cast[int(random(listLength))];
-    
-    if (!newFilmsList.includes(possibleFilm)) {
-      newFilmsList.push(possibleFilm);
-    }
-  }
-  
-  //TO DO: Spawn new films here
 }
 
 
@@ -179,7 +161,7 @@ function spawnNewActors(newActors) {
 }
 
 
-function spawnFirstActor(people) {
+function spawnNewActor(people) {
   console.log(people);
   let listLength = Object.keys(people.results).length;
   let possibleActor = people.results[int(random(listLength))];
@@ -187,17 +169,53 @@ function spawnFirstActor(people) {
   
   while(!foundActor) {
     console.log(possibleActor);
-    if (possibleActor.known_for_department == "Acting") {
-      foundActor = true;
+    if (possibleActor.known_for_department === "Acting") {
+        foundActor = true;
     } else {
-      possibleActor = people.results[int(random(listLength))];
+        // TO DO: What if there is no actor in result? This will be infinite loop.
+        possibleActor = people.results[int(random(listLength))];
     }
   }
   
-  //TO DO: spawn first Actor
+  getFilmsOfActor(possibleActor.id, people);
+}
+
+// actorID: ID of actor
+// return List of length 3 of film JSON objects
+function getFilmsOfActor(actorID, actorName) {
+    const filmsOfActorUrl = "https://api.themoviedb.org/3/person/" + actorID + "/movie_credits?language=en-US&api_key=" + APIkey;
+
+    const syncCallUrl = async () => {
+        const response = await fetch(filmsOfActorUrl);
+        const newFilms = await response.json();
+        console.log(newFilms);
+
+        const newFilmsList = spawnNewFilms(newFilms);
+        const newActor = new Actor(actorName, newFilmsList);
+        actorsManager.push(newActor);  
+    }
+
+    syncCallUrl();
+}
+
+// callback function for spawning new films
+function spawnNewFilms(newFilms) {
+  console.log(newFilms);
+  let newFilmsList = [];
+  let listLength = Object.keys(newFilms.cast).length;
   
-  getFilmsOfActor(possibleActor.id);
+  while (newFilmsList.length < 3) {
+    let possibleFilm = newFilms.cast[int(random(listLength))];
+    
+    if (!newFilmsList.includes(possibleFilm)) {
+      const newFilm = new Film(possibleFilm.title);
+      newFilmsList.push(newFilm);
+      filmsManager.push(newFilm);
+    }
+  }
+  return newFilmsList;
   
+  //TO DO: Spawn new films here
 }
 
 //helper function for asynchronous API calls
