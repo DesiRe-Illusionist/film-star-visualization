@@ -17,23 +17,19 @@ function setup() {
     button.mousePressed(start);
 }
 
-function createActorAndFilm(actorName) {
-    const getActorURL = 'https://api.themoviedb.org/3/search/person?include_adult=false&page=1&query=' + name + '&language=en-US&api_key=' + APIkey;
-    const actorObj = callAPI(getActorURL, spawnNewActor)
-}
-
 // start the visualization
 function start() {
-    started = true;
     let name = input.value();
     
     if (name != '') {
-        
 
       let url = 'https://api.themoviedb.org/3/search/person?include_adult=false&page=1&query=' + 
       name + '&language=en-US&api_key=' + APIkey;
       loadJSON(url, spawnNewActor);
     }
+
+    started = true;
+
   }
 
 let next = 0;
@@ -83,7 +79,6 @@ class Particle {
             }
         }
         this.image.updatePixels();
-        // image(this.image, this.posX, this.posY);
     }
 }
 
@@ -91,14 +86,18 @@ class Actor extends Particle {
     constructor(name, films) {
         super(100, 1.5, 100, 255, 0, 100, 0, 100, createVector(100, 100));
         this.name = name;
-        this.films = films;
+        this.unvisited_films = films;
+        this.visited_films = [];
     }
 
     drawActor() {
         super.drawParticle();
-        //this.posX += this.velocity.x;
-        //this.posY += this.velocity.y;
         image(this.image, this.posX, this.posY);
+    }
+
+    updateActor() {
+        this.posX += this.velocity.x;
+        this.posY += this.velocity.y;
     }
 }
 
@@ -177,10 +176,11 @@ function spawnNewActor(people) {
     }
   }
   
-  getFilmsOfActor(possibleActor.id, people);
+  getFilmsOfActor(possibleActor.id, possibleActor.name);
 }
 
 // actorID: ID of actor
+// actorName: name of the actor
 // return List of length 3 of film JSON objects
 function getFilmsOfActor(actorID, actorName) {
     const filmsOfActorUrl = "https://api.themoviedb.org/3/person/" + actorID + "/movie_credits?language=en-US&api_key=" + APIkey;
@@ -200,22 +200,20 @@ function getFilmsOfActor(actorID, actorName) {
 
 // callback function for spawning new films
 function spawnNewFilms(newFilms) {
-  console.log(newFilms);
-  let newFilmsList = [];
-  let listLength = Object.keys(newFilms.cast).length;
-  
-  while (newFilmsList.length < 3) {
-    let possibleFilm = newFilms.cast[int(random(listLength))];
+    console.log(newFilms);
+    let newFilmsList = [];
+    let listLength = Object.keys(newFilms.cast).length;
     
-    if (!newFilmsList.includes(possibleFilm)) {
-      const newFilm = new Film(possibleFilm.title);
-      newFilmsList.push(newFilm);
-      filmsManager.push(newFilm);
+    while (newFilmsList.length < 3) {
+        let possibleFilm = newFilms.cast[int(random(listLength))];
+        
+        if (!newFilmsList.includes(possibleFilm)) {
+            const newFilm = new Film(possibleFilm.title);
+            newFilmsList.push(newFilm);
+            filmsManager.push(newFilm);
+        }
     }
-  }
-  return newFilmsList;
-  
-  //TO DO: Spawn new films here
+    return newFilmsList;
 }
 
 //helper function for asynchronous API calls
