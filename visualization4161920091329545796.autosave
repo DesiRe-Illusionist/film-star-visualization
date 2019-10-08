@@ -17,27 +17,31 @@ function setup() {
     button.mousePressed(start);
 }
 
+function createActorAndFilm(actorName) {
+    const getActorURL = 'https://api.themoviedb.org/3/search/person?include_adult=false&page=1&query=' + name + '&language=en-US&api_key=' + APIkey;
+    const actorObj = callAPI(getActorURL, spawnNewActor);
+}
+
 // start the visualization
 function start() {
+    started = true;
     let name = input.value();
     
     if (name != '') {
+        
 
       let url = 'https://api.themoviedb.org/3/search/person?include_adult=false&page=1&query=' + 
       name + '&language=en-US&api_key=' + APIkey;
       loadJSON(url, spawnNewActor);
     }
-
-    started = true;
-
   }
 
 let next = 0;
 function draw() {
     if (started && millis() > next) {
-        //console.log(actorsManager);
+        console.log(actorsManager);
         actorsManager.forEach((actor) => {
-            //console.log(actor);
+            console.log(actor);
             actor.drawActor();
         })
 
@@ -79,6 +83,7 @@ class Particle {
             }
         }
         this.image.updatePixels();
+        // image(this.image, this.posX, this.posY);
     }
 }
 
@@ -86,24 +91,20 @@ class Actor extends Particle {
     constructor(name, films) {
         super(100, 1.5, 100, 255, 0, 100, 0, 100, createVector(100, 100));
         this.name = name;
-        this.unvisited_films = films;
-        this.visited_films = [];
+        this.films = films;
     }
 
     drawActor() {
         super.drawParticle();
+        //this.posX += this.velocity.x;
+        //this.posY += this.velocity.y;
         image(this.image, this.posX, this.posY);
-    }
-
-    updateActor() {
-        this.posX += this.velocity.x;
-        this.posY += this.velocity.y;
     }
 }
 
 class Film extends Particle {
-    constructor(title, r, g, b, position) {
-        super(400, 3, 100, 255, 100, 255, 100, 255, createVector((position - 1860) * float(windowWidth / 160), 300));
+    constructor(title) {
+        super(400, 3, 100, 255, 100, 255, 100, 255, createVector(500, 300));
         this.title = title;
     }
 
@@ -121,15 +122,7 @@ function getFilmDetails(filmID) {
   let url = "https://api.themoviedb.org/3/movie/" + filmID + 
   "?api_key=" + APIkey;
   
-  const syncCallUrl = async () => {
-        const response = await fetch(url);
-        const filmDetails = await response.json();
-        console.log(filmDetails);
-         
-        return filmDetails;
-    }
-  
-  syncCallUrl();
+  callAPI(url, filmDetails);
 }
 
 // callback function for film details
@@ -184,15 +177,13 @@ function spawnNewActor(people) {
     }
   }
   
-  getFilmsOfActor(possibleActor.id, possibleActor.name);
+  getFilmsOfActor(possibleActor.id, people);
 }
 
 // actorID: ID of actor
-// actorName: name of the actor
 // return List of length 3 of film JSON objects
 function getFilmsOfActor(actorID, actorName) {
-    const filmsOfActorUrl = "https://api.themoviedb.org/3/person/" + actorID + 
-    "/movie_credits?language=en-US&api_key=" + APIkey;
+    const filmsOfActorUrl = "https://api.themoviedb.org/3/person/" + actorID + "/movie_credits?language=en-US&api_key=" + APIkey;
 
     const syncCallUrl = async () => {
         const response = await fetch(filmsOfActorUrl);
@@ -209,40 +200,22 @@ function getFilmsOfActor(actorID, actorName) {
 
 // callback function for spawning new films
 function spawnNewFilms(newFilms) {
-    console.log(newFilms);
-    let newFilmsList = [];
-    let listLength = Object.keys(newFilms.cast).length;
+  console.log(newFilms);
+  let newFilmsList = [];
+  let listLength = Object.keys(newFilms.cast).length;
+  
+  while (newFilmsList.length < 3) {
+    let possibleFilm = newFilms.cast[int(random(listLength))];
     
-    
-        const syncCallUrl = async () => {
-          let possibleFilm = newFilms.cast[int(random(listLength))];
-          
-          if (!newFilmsList.includes(possibleFilm)) {
-              console.log(possibleFilm);
-              const url = "https://api.themoviedb.org/3/movie/" + possibleFilm.id + 
-              "?api_key=" + APIkey;
-              
-              const response = await fetch(url);
-              const filmDetails = await response.json();
-              console.log(filmDetails);
-              
-              let r, g, b, genreSum = 0;
-              
-              let releaseDate = int(filmDetails.release_date.substring(0, 4));
-              console.log(releaseDate);
-              for (i = 0; i < Object.keys(filmDetails.genres); i++) {
-                genreSum += filmDetails.genres.id;
-              }
-              
-              const newFilm = new Film(possibleFilm.title, genreSum % 255, genreSum / 255, 10, releaseDate);
-              newFilmsList.push(newFilm);
-              filmsManager.push(newFilm);
-          }
-        }
-        
-        syncCallUrl();
-    
-    return newFilmsList;
+    if (!newFilmsList.includes(possibleFilm)) {
+      const newFilm = new Film(possibleFilm.title);
+      newFilmsList.push(newFilm);
+      filmsManager.push(newFilm);
+    }
+  }
+  return newFilmsList;
+  
+  //TO DO: Spawn new films here
 }
 
 //helper function for asynchronous API calls
