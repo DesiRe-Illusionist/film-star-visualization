@@ -100,8 +100,9 @@ class Actor extends Particle {
     drawActor() {
         image(this.image, this.posX, this.posY);
         textSize(20);
+        fill (153,102,0);
         text(this.name, this.posX, this.posY);
-        fill (0,102,153);
+        
     }
 
     updateActor() {
@@ -114,6 +115,9 @@ class Actor extends Particle {
                 this.unvisited_films[0].actorsToSpawn.shift();
                 this.unvisited_films[0].spawnedActors.push(actorToSpawn);
                 spawnActorAndFilmsFromActorId(actorToSpawn.id);
+                
+                this.unvisited_films[0].grow();
+                
                 console.log("actor [" + this.name + "] hit film [" + this.unvisited_films[0].title + "] and spawned actor [" + actorToSpawn.name + "]");
                 console.log(actorsManager);
             }
@@ -151,8 +155,8 @@ class Actor extends Particle {
 }
 
 class Film extends Particle {
-    constructor(title, r, g, b, release_year, actorsToSpawn) {
-        super(600, 2.5, r, g, b, createVector(yearToCoordinate(release_year), random(height)));
+    constructor(title, r, g, b, release_year, actorsToSpawn, popularity) {
+        super(600, popularity, r, g, b, createVector(yearToCoordinate(release_year), random(height)));
         super.drawParticle();
         this.title = title;
         this.release_year =  release_year;
@@ -163,8 +167,14 @@ class Film extends Particle {
     drawFilm() {
         image(this.image, this.posX, this.posY);
         textSize(20);
-        text(this.title, this.posX, this.posY);
         fill (0,102,153);
+        text(this.title, this.posX, this.posY);
+        
+    }
+    
+    grow() {
+      this.size += 0.5;
+      this.drawParticle();
     }
 }
 
@@ -216,7 +226,8 @@ function createFilmObj(film) {
 
     const color = getColorFromGenreList(film.genre_ids);
     const release_year = Number(film.release_date.substring(0, 4));
-    const newFilm = new Film(film.title, red(color), green(color), blue(color), release_year, chosenActors);
+    console.log(film.popularity);
+    const newFilm = new Film(film.title, red(color), green(color), blue(color), release_year, chosenActors, log(film.popularity+1) );
     filmsManager.push(newFilm);
     return newFilm;
 }
@@ -314,12 +325,16 @@ function getFilmDetails(filmID) {
 }
 
 function yearToCoordinate(year) {
-    if (year < 1950 || year > 2019) {
-        return 0;
+    let oldFilmBorder = width * 0.25;
+    let coordinate;
+    
+    
+    if (year < 1940 || year > 2019) {
+       coordinate = oldFilmBorder * (year - 1890) / 60;      
+    } else {
+      coordinate = (width - oldFilmBorder) * (year - 1950)/79; // 79 = 2019 - 1940
     }
-
-    const coordinate = (width - 200) * (year - 1950)/69; // 69 = 2019 - 1950
-    return 25 + coordinate;
+    return 50 + coordinate;
 }
 
 function getColorFromGenreList(genre_ids) {
@@ -333,5 +348,5 @@ function getColorFromGenreList(genre_ids) {
         genreSum += id;
     })
 
-    return color(genreSum % 255, genreSum / 255, 10)
+    return color(genreSum % 255, genreSum / 255, genre_ids.length * 20);
 }
