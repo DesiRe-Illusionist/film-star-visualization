@@ -7,6 +7,9 @@ let filmsManager = [];
 function setup() {
     createCanvas(windowWidth, windowHeight);
     background(0);
+    imageMode(CENTER);
+    blendMode(ADD);
+    frameRate(60);
 
     //ask user for input
     input = createInput();
@@ -32,10 +35,11 @@ function start() {
 
   }
 
-let next = 0;
 function draw() {
-    if (started && millis() > next) {
-        //console.log(actorsManager);
+    clear();
+    background(0);
+    if (started) {
+        console.log(actorsManager);
         actorsManager.forEach((actor) => {
             //console.log(actor);
             actor.drawActor();
@@ -49,32 +53,26 @@ function draw() {
 }
 
 class Particle {
-    constructor(side, size, redLow, redHigh, greenLow, greenHigh, blueLow, blueHigh, position) {
+    constructor(side, size, red, green, blue, position) {
         this.image = createImage(side, side);
         this.side = side;
         this.size = size;
         this.posX = position.x;
         this.posY = position.y;
-        this.redLow = redLow;
-        this.redHigh = redHigh;
-        this.greenLow = greenLow;
-        this.greenHigh = greenHigh;
-        this.blueLow = blueLow;
-        this.blueHigh = blueHigh;
+        this.red = red;
+        this.green = green;
+        this.blue = blue;
     }
 
     drawParticle() {
         const center = this.side / 2;
         const decay_rate = pow(10, this.size);
-        const red = random(this.redLow, this.redHigh);
-        const green = random(this.greenLow, this.greenHigh);
-        const blue = random(this.blueLow, this.blueHigh);
 
         this.image.loadPixels();
         for (var y = 0; y < this.side; y++) {
             for (var x = 0; x < this.side; x++) {
                 var decay_factor = (sq(center - x) + sq(center - y))/decay_rate;
-                var col = color(red/decay_factor, green/decay_factor, blue/decay_factor);
+                var col = color(this.red/decay_factor, this.green/decay_factor, this.blue/decay_factor);
                 this.image.set(x, y, col);
             }
         }
@@ -84,31 +82,34 @@ class Particle {
 
 class Actor extends Particle {
     constructor(name, films) {
-        super(100, 1.5, 100, 255, 0, 100, 0, 100, createVector(100, 100));
+        super(100, 1.5, random(100,255), random(100,255), random(100,255), createVector(100, 100));
+        super.drawParticle();
         this.name = name;
         this.unvisited_films = films;
         this.visited_films = [];
     }
 
     drawActor() {
-        super.drawParticle();
         image(this.image, this.posX, this.posY);
     }
 
     updateActor() {
-        this.posX += this.velocity.x;
+        (this.unvisited_films[0].posY - this.posY)
+
+        this.posX += 1;
         this.posY += this.velocity.y;
     }
 }
 
 class Film extends Particle {
-    constructor(title, r, g, b, position) {
-        super(400, 3, 100, 255, 100, 255, 100, 255, createVector((position - 1860) * float(windowWidth / 160), 300));
+    constructor(title, r, g, b, release_year) {
+        super(600, 2.5, r, g, b, createVector(yearToCoordinate(release_year), random(300, height-300)));
+        super.drawParticle();
         this.title = title;
+        this.release_year =  release_year;
     }
 
     drawFilm() {
-        super.drawParticle();
         image(this.image, this.posX, this.posY);
     }
 }
@@ -200,6 +201,9 @@ function getFilmsOfActor(actorID, actorName) {
         console.log(newFilms);
 
         const newFilmsList = spawnNewFilms(newFilms);
+
+        // sort film list by their release year;
+        newFilmsList.sort((film_a, film_b) => {return film_a.release_year - film_b.release_year});
         const newActor = new Actor(actorName, newFilmsList);
         actorsManager.push(newActor);  
     }
@@ -213,39 +217,47 @@ function spawnNewFilms(newFilms) {
     let newFilmsList = [];
     let listLength = Object.keys(newFilms.cast).length;
     
-    
-        const syncCallUrl = async () => {
-          let possibleFilm = newFilms.cast[int(random(listLength))];
-          
-          if (!newFilmsList.includes(possibleFilm)) {
-              console.log(possibleFilm);
-              const url = "https://api.themoviedb.org/3/movie/" + possibleFilm.id + 
-              "?api_key=" + APIkey;
-              
-              const response = await fetch(url);
-              const filmDetails = await response.json();
-              console.log(filmDetails);
-              
-              let r, g, b, genreSum = 0;
-              
-              let releaseDate = int(filmDetails.release_date.substring(0, 4));
-              console.log(releaseDate);
-              for (i = 0; i < Object.keys(filmDetails.genres); i++) {
-                genreSum += filmDetails.genres.id;
-              }
-              
-              const newFilm = new Film(possibleFilm.title, genreSum % 255, genreSum / 255, 10, releaseDate);
-              newFilmsList.push(newFilm);
-              filmsManager.push(newFilm);
-          }
-        }
+    while (newFilmsList.length < 3) {
+        let possibleFilm = newFilms.cast[int(random(listLength))];
         
-        syncCallUrl();
-    
+        if (!newFilmsList.includes(possibleFilm)) {
+
+            const color = getColorFromGenreList(possibleFilm.genre_ids);
+            const release_year = Number(possibleFilm.release_date.substring(0, 4));
+            const newFilm = new Film(possibleFilm.title, red(color), green(color), blue(color), release_year);
+            newFilmsList.push(newFilm);
+            filmsManager.push(newFilm);
+        }
+    }    
     return newFilmsList;
 }
 
 //helper function for asynchronous API calls
 function callAPI(url, callback) {
   return loadJSON(url, callback);
+}
+
+function yearToCoordinate(year) {
+    if (year < 1895 || year > 2019) {
+        return 0;
+    }
+
+    const coordinate = (width - 400) * (year - 1895)/124; // 124 = 2019 - 1895
+    console.log("coordinate is " + coordinate);
+    return 200 + coordinate;
+}
+
+function getColorFromGenreList(genre_ids) {
+    // TO DO: think about how to convert genre_ids to color
+    if (genre_ids.length === 0) {
+        return color(100, 100, 100)
+    }
+
+    var genreSum = 0;
+    genre_ids.forEach((id) => {
+        genreSum += id;
+    })
+
+    return color(genreSum % 255, genreSum / 255, 10)
+
 }
