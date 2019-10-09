@@ -1,4 +1,5 @@
-let APIkey = "77bcb8668e691d702f0e6870eb117283";
+const API_KEY = "77bcb8668e691d702f0e6870eb117283";
+
 let started = false;
 let input, greeting;
 let actorsManager = [];
@@ -22,31 +23,28 @@ function setup() {
 
 // start the visualization
 function start() {
-    let name = input.value();
+    let actorName = input.value();
     
-    if (name != '') {
-
-      let url = 'https://api.themoviedb.org/3/search/person?include_adult=false&page=1&query=' + 
-      name + '&language=en-US&api_key=' + APIkey;
-      loadJSON(url, spawnNewActor);
+    if (actorName != '') {
+        const getAcotUrl = 'https://api.themoviedb.org/3/search/person?include_adult=false&page=1&query=' + actorName + '&language=en-US&api_key=' + API_KEY;
+        loadJSON(getAcotUrl, spawnNewActorAndFilms)
     }
 
     started = true;
-
-  }
+}
 
 function draw() {
     clear();
     background(0);
     if (started) {
-        console.log(actorsManager);
         actorsManager.forEach((actor) => {
-            //console.log(actor);
+            // console.log(actor);
             actor.drawActor();
+            actor.updateActor();
         })
 
         filmsManager.forEach((film) => {
-            console.log(film);
+            // console.log(film);
             film.drawFilm();
         })
     }
@@ -87,6 +85,8 @@ class Actor extends Particle {
         this.name = name;
         this.unvisited_films = films;
         this.visited_films = [];
+        this.velX = 1;
+        this.velY = this.getYVelocity();
     }
 
     drawActor() {
@@ -94,10 +94,42 @@ class Actor extends Particle {
     }
 
     updateActor() {
-        (this.unvisited_films[0].posY - this.posY)
+        this.posX += this.velX;
+        this.posY += this.velY;
 
-        this.posX += 1;
-        this.posY += this.velocity.y;
+        if (this.distFromTarget() <= 1) {
+            console.log("actor hit film");
+            console.log(actorsManager);
+            this.visited_films.push(this.unvisited_films[0]);
+            this.unvisited_films.shift();
+            this.velY = this.getYVelocity();
+            console.log(actorsManager);
+        }
+    }
+
+    distFromTarget() {
+        if (this.unvisited_films.length === 0) {
+            return 100; // some none zero value
+        }
+
+        const xDist = this.unvisited_films[0].posX - this.posX;
+        const yDist = this.unvisited_films[0].posY - this.posY;
+        const dist = sq(xDist) + sq(yDist);
+        return dist;
+    }
+
+    getYVelocity() {
+        let yTarget;
+        let xTarget;
+        if (this.unvisited_films.length != 0) {
+            yTarget = this.unvisited_films[0].posY;
+            xTarget = this.unvisited_films[0].posX;
+        } else {
+            yTarget = random(height);
+            xTarget = width;
+        }
+        const velY = this.velX * (yTarget - this.posY) / (xTarget - this.posX);
+        return velY
     }
 }
 
@@ -114,127 +146,98 @@ class Film extends Particle {
     }
 }
 
+function spawnNewActorAndFilms(people) {
+    const chosenActor = chooseRandomActor(people);
+    getFilmsOfActor(chosenActor.id, chosenActor.name);
+}
 
-// get details of a film such as genre, popularity, etc.
-// filmID: id of film
-// return film details JSON: https://developers.themoviedb.org/3/movies/get-movie-details
-function getFilmDetails(filmID) {
-  let url = "https://api.themoviedb.org/3/movie/" + filmID + 
-  "?api_key=" + APIkey;
-  
-  const syncCallUrl = async () => {
-        const response = await fetch(url);
-        const filmDetails = await response.json();
-        console.log(filmDetails);
-         
-        return filmDetails;
+function chooseRandomActor(people) {
+    let foundActor = false;
+    let chosenActor;
+    while (!foundActor) {
+        if (people.results.length === 0) {
+            // TO DO: figure out what to do when no actor found
+            console.error("No actor found.")
+        }
+
+        let actorIdx = int(random(people.results.length));
+        if (people.results[actorIdx].known_for_department === "Acting") {
+            chosenActor = people.results[actorIdx];
+            foundActor = true;
+        } else {
+            people.results.splice(actorIdx);
+        }
     }
-  
-  syncCallUrl();
-}
 
-// callback function for film details
-function newFilmDetails(filmDetails) {
-  
-  
-  //TO DO: use film details to populate stuff
-}
-
-
-// get new actors from a film
-// filmID: id of film
-// return List of length 3 of actor JSON objects
-function getFilmCredits(filmID) {
-  let url = "https://api.themoviedb.org/3/movie/" + filmId + 
-  "/credits?api_key=" + APIkey;
-  
-  let newActors = callAPI(url, spawnNewActors);
-  
-}
-
-// callback function for getFilmCredits
-function spawnNewActors(newActors) {
-  let newActorsList = [];
-  let listLength = Object.keys(newActors.cast).length;
-  
-  while (newActorsList.length < 3) {
-    let possibleActor = newActors.cast[int(random(listLength))];
-    
-    if (!newActorsList.includes(possibleActor)) {
-      newActorsList.push(possibleActor);
-    }
-  }
-  
-  //TO DO: spawn new actors here
-}
-
-
-function spawnNewActor(people) {
-  console.log(people);
-  let listLength = Object.keys(people.results).length;
-  let possibleActor = people.results[int(random(listLength))];
-  let foundActor = false;
-  
-  while(!foundActor) {
-    console.log(possibleActor);
-    if (possibleActor.known_for_department === "Acting") {
-        foundActor = true;
-    } else {
-        // TO DO: What if there is no actor in result? This will be infinite loop.
-        possibleActor = people.results[int(random(listLength))];
-    }
-  }
-  
-  getFilmsOfActor(possibleActor.id, possibleActor.name);
+    return chosenActor;
 }
 
 // actorID: ID of actor
 // actorName: name of the actor
 // return List of length 3 of film JSON objects
 function getFilmsOfActor(actorID, actorName) {
-    const filmsOfActorUrl = "https://api.themoviedb.org/3/person/" + actorID + 
-    "/movie_credits?language=en-US&api_key=" + APIkey;
+    const filmsOfActorUrl = "https://api.themoviedb.org/3/person/" + actorID + "/movie_credits?language=en-US&api_key=" + API_KEY;
 
-    const syncCallUrl = async () => {
+    const callSynchronousApi = async() => {
         const response = await fetch(filmsOfActorUrl);
-        const newFilms = await response.json();
-        console.log(newFilms);
-
-        const newFilmsList = spawnNewFilms(newFilms);
-
-        // sort film list by their release year;
-        newFilmsList.sort((film_a, film_b) => {return film_a.release_year - film_b.release_year});
-        const newActor = new Actor(actorName, newFilmsList);
-        actorsManager.push(newActor);  
+        const filmsOfActor = await response.json();
+        const chosenFilms = chooseRandomFilms(filmsOfActor, 3);
+        const newActor = new Actor(actorName, chosenFilms);
+        actorsManager.push(newActor); 
     }
 
-    syncCallUrl();
+    callSynchronousApi();
 }
 
-// callback function for spawning new films
-function spawnNewFilms(newFilms) {
-    console.log(newFilms);
-    let newFilmsList = [];
-    let listLength = Object.keys(newFilms.cast).length;
-    
-    while (newFilmsList.length < 3) {
-        let possibleFilm = newFilms.cast[int(random(listLength))];
-        
-        if (!newFilmsList.includes(possibleFilm)) {
-
-            const color = getColorFromGenreList(possibleFilm.genre_ids);
-            const release_year = Number(possibleFilm.release_date.substring(0, 4));
-            const newFilm = new Film(possibleFilm.title, red(color), green(color), blue(color), release_year);
-            newFilmsList.push(newFilm);
-            filmsManager.push(newFilm);
+function chooseRandomFilms(films, capacity) {
+    const chosenFilms = [];
+    const existingReleaseYears = [];
+    if (films.cast.length <= capacity) {
+        films.cast.forEach((film) => {
+            const newFilm = createFilmObj(film);
+            if (!existingReleaseYears.includes(newFilm.release_year)) {
+                // For each actor, show at most one film per year (avoid vertical movement)
+                chosenFilms.push(newFilm);
+                existingReleaseYears.push(newFilm.release_year)
+            }
+        })
+    } else {
+        while (chosenFilms.length < capacity && films.cast.length > 0) {
+            const filmIdx = int(random(films.cast.length));
+            const newFilm = createFilmObj(films.cast[filmIdx]);
+            if (!existingReleaseYears.includes(newFilm.release_year)) {
+                chosenFilms.push(newFilm);
+                existingReleaseYears.push(newFilm.release_year)
+            }
+            films.cast.splice(filmIdx);
         }
-    }    
-    return newFilmsList;
+    }
+
+    chosenFilms.sort((film_a, film_b) => {return film_a.release_year - film_b.release_year});
+    return chosenFilms;
 }
 
-//helper function for asynchronous API calls
-function callAPI(url, callback) {
-  return loadJSON(url, callback);
+function createFilmObj(film) {
+    const color = getColorFromGenreList(film.genre_ids);
+    const release_year = Number(film.release_date.substring(0, 4));
+    const newFilm = new Film(film.title, red(color), green(color), blue(color), release_year);
+    filmsManager.push(newFilm);
+    return newFilm;
+}
+
+// get details of a film such as genre, popularity, etc.
+// filmID: id of film
+// return film details JSON: https://developers.themoviedb.org/3/movies/get-movie-details
+function getFilmDetails(filmID) {
+    let url = "https://api.themoviedb.org/3/movie/" + filmID + "?api_key=" + API_KEY;
+    
+    const syncCallUrl = async () => {
+          const response = await fetch(url);
+          const filmDetails = await response.json();         
+          return filmDetails;
+      }
+    
+    syncCallUrl();
 }
 
 function yearToCoordinate(year) {
@@ -243,7 +246,6 @@ function yearToCoordinate(year) {
     }
 
     const coordinate = (width - 400) * (year - 1895)/124; // 124 = 2019 - 1895
-    console.log("coordinate is " + coordinate);
     return 200 + coordinate;
 }
 
@@ -259,5 +261,4 @@ function getColorFromGenreList(genre_ids) {
     })
 
     return color(genreSum % 255, genreSum / 255, 10)
-
 }
