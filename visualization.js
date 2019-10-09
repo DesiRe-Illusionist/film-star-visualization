@@ -99,6 +99,9 @@ class Actor extends Particle {
 
     drawActor() {
         image(this.image, this.posX, this.posY);
+        textSize(20);
+        text(this.name, this.posX, this.posY);
+        fill (0,102,153);
     }
 
     updateActor() {
@@ -159,6 +162,9 @@ class Film extends Particle {
 
     drawFilm() {
         image(this.image, this.posX, this.posY);
+        textSize(20);
+        text(this.title, this.posX, this.posY);
+        fill (0,102,153);
     }
 }
 
@@ -308,12 +314,12 @@ function getFilmDetails(filmID) {
 }
 
 function yearToCoordinate(year) {
-    if (year < 1895 || year > 2019) {
+    if (year < 1950 || year > 2019) {
         return 0;
     }
 
-    const coordinate = (width - 400) * (year - 1895)/124; // 124 = 2019 - 1895
-    return 200 + coordinate;
+    const coordinate = (width - 200) * (year - 1950)/69; // 69 = 2019 - 1950
+    return 25 + coordinate;
 }
 
 function getColorFromGenreList(genre_ids) {
