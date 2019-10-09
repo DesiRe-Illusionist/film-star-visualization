@@ -2,8 +2,11 @@ const API_KEY = "77bcb8668e691d702f0e6870eb117283";
 
 let started = false;
 let input, greeting;
-let actorsManager = [];
-let filmsManager = [];
+
+const actorsManager = [];
+const filmsManager = [];
+const actorsInSimulation = [];
+const filmsInSimulation = [];
 
 function setup() {
     createCanvas(windowWidth, windowHeight);
@@ -26,8 +29,7 @@ function start() {
     let actorName = input.value();
     
     if (actorName != '') {
-        const getAcotUrl = 'https://api.themoviedb.org/3/search/person?include_adult=false&page=1&query=' + actorName + '&language=en-US&api_key=' + API_KEY;
-        loadJSON(getAcotUrl, spawnNewActorAndFilms)
+        spawnActorAndFilmsFromActorName(actorName);
     }
 
     started = true;
@@ -37,15 +39,21 @@ function draw() {
     clear();
     background(0);
     if (started) {
-        actorsManager.forEach((actor) => {
+        actorsManager.forEach((actor, index) => {
             // console.log(actor);
             actor.drawActor();
             actor.updateActor();
+            if (actor.posX > width) {
+                actorsManager.splice(index, 1);
+            }
         })
 
-        filmsManager.forEach((film) => {
+        filmsManager.forEach((film, index) => {
             // console.log(film);
             film.drawFilm();
+            // if (film.actorsToSpawn.length === 0) {
+            //     filmsManager.splice(index, 1);
+            // }
         })
     }
 }
@@ -80,7 +88,7 @@ class Particle {
 
 class Actor extends Particle {
     constructor(name, films) {
-        super(100, 1.5, random(100,255), random(100,255), random(100,255), createVector(100, 100));
+        super(100, 1.5, random(100,255), random(100,255), random(100,255), createVector(0, random(height)));
         super.drawParticle();
         this.name = name;
         this.unvisited_films = films;
@@ -98,12 +106,18 @@ class Actor extends Particle {
         this.posY += this.velY;
 
         if (this.distFromTarget() <= 1) {
-            console.log("actor hit film");
-            console.log(actorsManager);
+            if (this.unvisited_films[0].actorsToSpawn.length != 0) {
+                const actorToSpawn = this.unvisited_films[0].actorsToSpawn[0];
+                this.unvisited_films[0].actorsToSpawn.shift();
+                this.unvisited_films[0].spawnedActors.push(actorToSpawn);
+                spawnActorAndFilmsFromActorId(actorToSpawn.id);
+                console.log("actor [" + this.name + "] hit film [" + this.unvisited_films[0].title + "] and spawned actor [" + actorToSpawn.name + "]");
+                console.log(actorsManager);
+            }
+
             this.visited_films.push(this.unvisited_films[0]);
             this.unvisited_films.shift();
             this.velY = this.getYVelocity();
-            console.log(actorsManager);
         }
     }
 
@@ -134,11 +148,13 @@ class Actor extends Particle {
 }
 
 class Film extends Particle {
-    constructor(title, r, g, b, release_year) {
-        super(600, 2.5, r, g, b, createVector(yearToCoordinate(release_year), random(300, height-300)));
+    constructor(title, r, g, b, release_year, actorsToSpawn) {
+        super(600, 2.5, r, g, b, createVector(yearToCoordinate(release_year), random(height)));
         super.drawParticle();
         this.title = title;
         this.release_year =  release_year;
+        this.spawnedActors = [];
+        this.actorsToSpawn = actorsToSpawn;
     }
 
     drawFilm() {
@@ -146,22 +162,72 @@ class Film extends Particle {
     }
 }
 
-function spawnNewActorAndFilms(people) {
-    const chosenActor = chooseRandomActor(people);
-    getFilmsOfActor(chosenActor.id, chosenActor.name);
+function spawnActorAndFilmsFromActorName(actorName) {
+    const getActorUrl = 'https://api.themoviedb.org/3/search/person?include_adult=false&page=1&query=' + actorName + '&language=en-US&api_key=' + API_KEY;
+    const callApi = async() => {
+        const response = await fetch(getActorUrl);
+        const people = await response.json();
+        const chosenActor = chooseRandomActor(people, actorName);
+        spawnFilmsOfActor(chosenActor);
+    }
+
+    callApi();    
 }
 
-function chooseRandomActor(people) {
+function spawnActorAndFilmsFromActorId(actorId) {
+    const getActorUrl = 'https://api.themoviedb.org/3/person/' + actorId + '?language=en-US&api_key=' + API_KEY;
+    loadJSON(getActorUrl, spawnFilmsOfActor);   
+}
+
+// actorID: ID of actor
+// actorName: name of the actor
+// return List of length 3 of film JSON objects
+function spawnFilmsOfActor(actor) {
+    const filmsOfActorUrl = "https://api.themoviedb.org/3/person/" + actor.id + "/movie_credits?language=en-US&api_key=" + API_KEY;
+    const callSynchronousApi = async() => {
+        const response = await fetch(filmsOfActorUrl);
+        const filmsOfActor = await response.json();
+        const chosenFilms = chooseRandomFilms(filmsOfActor, 3);
+        const newActor = new Actor(actor.name, chosenFilms);
+        actorsManager.push(newActor);
+        actorsInSimulation.push(actor.id);
+    }
+
+    callSynchronousApi();
+}
+
+function createFilmObj(film) {
+    const filmCreditsUrl = "https://api.themoviedb.org/3/movie/" + film.id + "/credits?api_key=" + API_KEY;
+
+    const chosenActors = [];
+    const callSynchronousApi = async() => {
+        const response = await fetch(filmCreditsUrl);
+        const filmCredits = await response.json();
+        chooseRandomCastOfFilm(filmCredits.cast, 3, chosenActors);
+    }
+
+    callSynchronousApi();
+
+    const color = getColorFromGenreList(film.genre_ids);
+    const release_year = Number(film.release_date.substring(0, 4));
+    const newFilm = new Film(film.title, red(color), green(color), blue(color), release_year, chosenActors);
+    filmsManager.push(newFilm);
+    return newFilm;
+}
+
+function chooseRandomActor(people, actorName) {
     let foundActor = false;
     let chosenActor;
     while (!foundActor) {
         if (people.results.length === 0) {
             // TO DO: figure out what to do when no actor found
-            console.error("No actor found.")
+            console.error("No actor found for actor name [" + actorName + "].");
         }
 
         let actorIdx = int(random(people.results.length));
-        if (people.results[actorIdx].known_for_department === "Acting") {
+        if (people.results[actorIdx].known_for_department === "Acting" 
+                && !actorsInSimulation.includes(people.results[actorIdx].id)) {
+
             chosenActor = people.results[actorIdx];
             foundActor = true;
         } else {
@@ -172,42 +238,30 @@ function chooseRandomActor(people) {
     return chosenActor;
 }
 
-// actorID: ID of actor
-// actorName: name of the actor
-// return List of length 3 of film JSON objects
-function getFilmsOfActor(actorID, actorName) {
-    const filmsOfActorUrl = "https://api.themoviedb.org/3/person/" + actorID + "/movie_credits?language=en-US&api_key=" + API_KEY;
-
-    const callSynchronousApi = async() => {
-        const response = await fetch(filmsOfActorUrl);
-        const filmsOfActor = await response.json();
-        const chosenFilms = chooseRandomFilms(filmsOfActor, 3);
-        const newActor = new Actor(actorName, chosenFilms);
-        actorsManager.push(newActor); 
-    }
-
-    callSynchronousApi();
-}
-
 function chooseRandomFilms(films, capacity) {
     const chosenFilms = [];
     const existingReleaseYears = [];
     if (films.cast.length <= capacity) {
         films.cast.forEach((film) => {
-            const newFilm = createFilmObj(film);
-            if (!existingReleaseYears.includes(newFilm.release_year)) {
+            const film_release_year = Number(film.release_date.substring(0, 4));
+            if (!existingReleaseYears.includes(film_release_year) && !filmsInSimulation.includes(film.id)) {
                 // For each actor, show at most one film per year (avoid vertical movement)
+                const newFilm = createFilmObj(film);
                 chosenFilms.push(newFilm);
-                existingReleaseYears.push(newFilm.release_year)
+                existingReleaseYears.push(film_release_year);
+                filmsInSimulation.push(film.id);
             }
         })
     } else {
         while (chosenFilms.length < capacity && films.cast.length > 0) {
             const filmIdx = int(random(films.cast.length));
-            const newFilm = createFilmObj(films.cast[filmIdx]);
-            if (!existingReleaseYears.includes(newFilm.release_year)) {
+            const film = films.cast[filmIdx];
+            const film_release_year = Number(film.release_date.substring(0, 4));
+            if (!existingReleaseYears.includes(film_release_year) && !filmsInSimulation.includes(film.id)) {
+                const newFilm = createFilmObj(film);
                 chosenFilms.push(newFilm);
-                existingReleaseYears.push(newFilm.release_year)
+                existingReleaseYears.push(film_release_year);
+                filmsInSimulation.push(film.id);
             }
             films.cast.splice(filmIdx);
         }
@@ -217,12 +271,25 @@ function chooseRandomFilms(films, capacity) {
     return chosenFilms;
 }
 
-function createFilmObj(film) {
-    const color = getColorFromGenreList(film.genre_ids);
-    const release_year = Number(film.release_date.substring(0, 4));
-    const newFilm = new Film(film.title, red(color), green(color), blue(color), release_year);
-    filmsManager.push(newFilm);
-    return newFilm;
+function chooseRandomCastOfFilm(cast, capacity, chosenActors) {
+    if (cast.length <= capacity) {
+        cast.forEach((actor) => {
+            if (!actorsInSimulation.includes(actor.id)) {
+                chosenActors.push({'id': actor.id, 'name': actor.name});
+                actorsInSimulation.push(actor.id);
+            }
+        })
+    } else {
+        while (chosenActors.length < capacity && cast.length > 0) {
+            const actorIdx = int(random(cast.length));
+            const actor = cast[actorIdx];
+            if (!actorsInSimulation.includes(actor.id)) {
+                chosenActors.push({'id': actor.id, 'name': actor.name});
+                actorsInSimulation.push(actor.id);
+            }
+            cast.splice(actorIdx);
+        }
+    }
 }
 
 // get details of a film such as genre, popularity, etc.
