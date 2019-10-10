@@ -35,7 +35,9 @@ function start() {
     let actorName = input.value();
     
     if (actorName != '') {
-        spawnActorAndFilmsFromActorName(actorName);
+        spawnActorAndFilmsFromActorName(actorName).then(() => {
+            started = true;
+        });
     }
     
     button2 = createButton("Toggle Text");
@@ -54,7 +56,8 @@ function draw() {
         actorsManager.forEach((actor, index) => {
             // console.log(actor);
             actor.drawActor();
-            actor.updateActor(index);
+            actor.updateActor();
+
             if (actor.posX > width) {
                 actorsManager.splice(index, 1);
             }
@@ -104,11 +107,11 @@ class Particle {
 }
 
 class Actor extends Particle {
-    constructor(name, films) {
+    constructor(name) {
         super(100, 1.5, random(100,255), random(100,255), random(100,255), createVector(0, random(height)));
         super.drawParticle();
         this.name = name;
-        this.unvisited_films = films;
+        this.unvisited_films = [];
         this.visited_films = [];
         
         
@@ -130,9 +133,6 @@ class Actor extends Particle {
     }
 
     updateActor() {
-        this.posX += this.velX;
-        this.posY += this.velY;
-
         if (this.distFromTarget() <= 1) {
             if (this.unvisited_films[0].actorsToSpawn.length != 0) {
                 const actorToSpawn = this.unvisited_films[0].actorsToSpawn[0];
@@ -153,6 +153,10 @@ class Actor extends Particle {
             this.velY = this.getYVelocity();
             
         }
+
+        this.velY = this.getYVelocity();
+        this.posX += this.velX;
+        this.posY += this.velY;
     }
 
     distFromTarget() {
@@ -177,7 +181,7 @@ class Actor extends Particle {
         let yTarget;
         let xTarget;
         if (this.unvisited_films.length != 0) {
-            yTarget = this.unvisited_films[0].posY;
+            yTarget = this.unvisited_gifilms[0].posY;
             xTarget = this.unvisited_films[0].posX;
         } else {
             yTarget = random(height);
@@ -209,13 +213,13 @@ class Actor extends Particle {
 }
 
 class Film extends Particle {
-    constructor(title, r, g, b, release_year, actorsToSpawn, popularity) {
+    constructor(title, r, g, b, release_year, popularity) {
         super(600, popularity, r, g, b, createVector(yearToCoordinate(release_year), random(height)));
         super.drawParticle();
         this.title = title;
         this.release_year =  release_year;
         this.spawnedActors = [];
-        this.actorsToSpawn = actorsToSpawn;
+        this.actorsToSpawn = [];
     }
 
     drawFilm() {
@@ -243,54 +247,62 @@ class Film extends Particle {
 
 function spawnActorAndFilmsFromActorName(actorName) {
     const getActorUrl = 'https://api.themoviedb.org/3/search/person?include_adult=false&page=1&query=' + actorName + '&language=en-US&api_key=' + API_KEY;
-    const callApi = async() => {
-        const response = await fetch(getActorUrl);
-        const people = await response.json();
-        const chosenActor = chooseRandomActor(people, actorName);
-        spawnFilmsOfActor(chosenActor);
-    }
-
-    callApi();    
+    
+    return jQuery.ajax({
+        url: getActorUrl,
+        success: function (people) {
+            const chosenActor = chooseRandomActor(people, actorName);
+            spawnActorAndFilms(chosenActor);       
+        },
+        async: true
+    });   
 }
 
-function spawnActorAndFilmsFromActorId(actorId) {
+const spawnActorAndFilmsFromActorId = (actorId) => {
     const getActorUrl = 'https://api.themoviedb.org/3/person/' + actorId + '?language=en-US&api_key=' + API_KEY;
-    loadJSON(getActorUrl, spawnFilmsOfActor);   
+    return jQuery.ajax({
+        url: getActorUrl,
+        success: function (actor) {
+            spawnActorAndFilms(actor);       
+        },
+        async: true
+    }); 
 }
 
 // actorID: ID of actor
 // actorName: name of the actor
 // return List of length 3 of film JSON objects
-function spawnFilmsOfActor(actor) {
+function spawnActorAndFilms(actor) {
     const filmsOfActorUrl = "https://api.themoviedb.org/3/person/" + actor.id + "/movie_credits?language=en-US&api_key=" + API_KEY;
-    const callSynchronousApi = async() => {
-        const response = await fetch(filmsOfActorUrl);
-        const filmsOfActor = await response.json();
-        const chosenFilms = chooseRandomFilms(filmsOfActor, 3);
-        const newActor = new Actor(actor.name, chosenFilms);
-        actorsManager.push(newActor);
-        actorsInSimulation.push(actor.id);
-    }
+    jQuery.ajax({
+        url: filmsOfActorUrl,
+        success: function (filmsOfActor) {
+            const newActor = new Actor(actor.name, []);
+            actorsManager.push(newActor);
+            actorsInSimulation.push(actor.id); 
+            chooseRandomFilms(filmsOfActor, 3, newActor);
+        },
+        async: true
+    });
+}
 
-    callSynchronousApi();
+function chooseActorsToSpawn(film, filmObj) {
+    const filmCreditsUrl = "https://api.themoviedb.org/3/movie/" + film.id + "/credits?api_key=" + API_KEY;
+
+    jQuery.ajax({
+        url: filmCreditsUrl,
+        success: function (filmCredits) {
+            const chosenActors = chooseRandomCastOfFilm(filmCredits.cast, 3);
+            filmObj.actorsToSpawn = chosenActors;
+        },
+        async: true
+    });
 }
 
 function createFilmObj(film) {
-    const filmCreditsUrl = "https://api.themoviedb.org/3/movie/" + film.id + "/credits?api_key=" + API_KEY;
-
-    const chosenActors = [];
-    const callSynchronousApi = async() => {
-        const response = await fetch(filmCreditsUrl);
-        const filmCredits = await response.json();
-        chooseRandomCastOfFilm(filmCredits.cast, 3, chosenActors);
-    }
-
-    callSynchronousApi();
-
     const color = getColorFromGenreList(film.genre_ids);
     const release_year = Number(film.release_date.substring(0, 4));
-    //console.log(film.popularity);
-    const newFilm = new Film(film.title, red(color), green(color), blue(color), release_year, chosenActors, log(film.popularity+1) );
+    const newFilm = new Film(film.title, red(color), green(color), blue(color), release_year, log(film.popularity+1) );
     filmsManager.push(newFilm);
     return newFilm;
 }
@@ -318,7 +330,7 @@ function chooseRandomActor(people, actorName) {
     return chosenActor;
 }
 
-function chooseRandomFilms(films, capacity) {
+function chooseRandomFilms(films, capacity, actor) {
     const chosenFilms = [];
     const existingReleaseYears = [];
     if (films.cast.length <= capacity) {
@@ -327,6 +339,7 @@ function chooseRandomFilms(films, capacity) {
             if (!existingReleaseYears.includes(film_release_year) && !filmsInSimulation.includes(film.id)) {
                 // For each actor, show at most one film per year (avoid vertical movement)
                 const newFilm = createFilmObj(film);
+                chooseActorsToSpawn(film, newFilm);
                 chosenFilms.push(newFilm);
                 existingReleaseYears.push(film_release_year);
                 filmsInSimulation.push(film.id);
@@ -339,6 +352,7 @@ function chooseRandomFilms(films, capacity) {
             const film_release_year = Number(film.release_date.substring(0, 4));
             if (!existingReleaseYears.includes(film_release_year) && !filmsInSimulation.includes(film.id)) {
                 const newFilm = createFilmObj(film);
+                chooseActorsToSpawn(film, newFilm);
                 chosenFilms.push(newFilm);
                 existingReleaseYears.push(film_release_year);
                 filmsInSimulation.push(film.id);
@@ -348,10 +362,11 @@ function chooseRandomFilms(films, capacity) {
     }
 
     chosenFilms.sort((film_a, film_b) => {return film_a.release_year - film_b.release_year});
-    return chosenFilms;
+    actor.unvisited_films = chosenFilms;
 }
 
-function chooseRandomCastOfFilm(cast, capacity, chosenActors) {
+function chooseRandomCastOfFilm(cast, capacity) {
+    const chosenActors = [];
     if (cast.length <= capacity) {
         cast.forEach((actor) => {
             if (!actorsInSimulation.includes(actor.id)) {
@@ -370,6 +385,7 @@ function chooseRandomCastOfFilm(cast, capacity, chosenActors) {
             cast.splice(actorIdx);
         }
     }
+    return chosenActors;
 }
 
 // get details of a film such as genre, popularity, etc.
