@@ -42,7 +42,7 @@ function draw() {
         actorsManager.forEach((actor, index) => {
             // console.log(actor);
             actor.drawActor();
-            actor.updateActor();
+            actor.updateActor(index);
             if (actor.posX > width) {
                 actorsManager.splice(index, 1);
             }
@@ -93,22 +93,20 @@ class Actor extends Particle {
         this.name = name;
         this.unvisited_films = films;
         this.visited_films = [];
-        this.velX = 1;
+        
+        
+        this.speed = 300;
+        this.timeToReach = this.calculateTimeToReach();
+        this.velX = this.getXVelocity();
         this.velY = this.getYVelocity();
     }
 
     drawActor() {
         
-        if (this.unvisited_films.length != 0) {
           image(this.image, this.posX, this.posY);
           textSize(20);
           fill (153,102,0);
           text(this.name, this.posX, this.posY);
-        } else {
-          actorsManager.pop(this);
-          actorsInSimulation.pop(this);
-          
-        }
         
     }
 
@@ -131,7 +129,10 @@ class Actor extends Particle {
 
             this.visited_films.push(this.unvisited_films[0]);
             this.unvisited_films.shift();
+            this.timeToReach = this.calculateTimeToReach();
+            this.velX = this.getXVelocity();
             this.velY = this.getYVelocity();
+            
         }
     }
 
@@ -145,6 +146,13 @@ class Actor extends Particle {
         const dist = sq(xDist) + sq(yDist);
         return dist;
     }
+    
+    calculateTimeToReach() {
+      const distance = this.distFromTarget();
+      
+      return distance / this.speed;
+      
+    }
 
     getYVelocity() {
         let yTarget;
@@ -156,8 +164,28 @@ class Actor extends Particle {
             yTarget = random(height);
             xTarget = width;
         }
-        const velY = this.velX * (yTarget - this.posY) / (xTarget - this.posX);
-        return velY
+        
+        
+        const velY = (yTarget - this.posY) / this.speed;
+        
+        return velY;
+    }
+    
+    getXVelocity() {
+        let yTarget;
+        let xTarget;
+        if (this.unvisited_films.length != 0) {
+            yTarget = this.unvisited_films[0].posY;
+            xTarget = this.unvisited_films[0].posX;
+        } else {
+            yTarget = random(height);
+            xTarget = width;
+        }
+        
+        
+        const velX = (xTarget - this.posX) / this.speed;
+        
+        return velX;
     }
 }
 
@@ -172,10 +200,17 @@ class Film extends Particle {
     }
 
     drawFilm() {
-        image(this.image, this.posX, this.posY);
-        textSize(20);
-        fill (0,102,153);
-        text(this.title, this.posX, this.posY);
+        //console.log(this.spawnedActors);
+        if (this.spawnedActors.length <= 3) {
+          image(this.image, this.posX, this.posY);
+          textSize(20);
+          fill (0,102,153);
+          text(this.title, this.posX, this.posY);
+        } else {
+            filmsManager.splice(index, index + 1);
+            filmsInSimulation.splice(index, index + 1);
+            
+        }
         
     }
     
@@ -233,7 +268,7 @@ function createFilmObj(film) {
 
     const color = getColorFromGenreList(film.genre_ids);
     const release_year = Number(film.release_date.substring(0, 4));
-    console.log(film.popularity);
+    //console.log(film.popularity);
     const newFilm = new Film(film.title, red(color), green(color), blue(color), release_year, chosenActors, log(film.popularity+1) );
     filmsManager.push(newFilm);
     return newFilm;
@@ -332,7 +367,7 @@ function getFilmDetails(filmID) {
 }
 
 function yearToCoordinate(year) {
-    let oldFilmBorder = width * 0.25;
+    let oldFilmBorder = width * 0.10;
     let coordinate;
     
     
@@ -354,6 +389,6 @@ function getColorFromGenreList(genre_ids) {
     genre_ids.forEach((id) => {
         genreSum += id;
     })
-    console.log(genreSum);
+    //console.log(genreSum);
     return color(genreSum % 120, genreSum / 255, genre_ids.length * 20);
 }
