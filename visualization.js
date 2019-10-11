@@ -4,6 +4,7 @@ let started = false;
 let textOn = true;
 let input, greeting;
 let song;
+let gaussian;
 
 
 const actorsManager = [];
@@ -70,10 +71,15 @@ function start() {
     started = true;
 }
 
+function toggleText() {
+    textOn = !textOn;
+}
+
 function draw() {
     clear();
     background(0);
     if (started) {
+
         input.hide();
         button.hide();
         actorsManager.forEach((actor, index) => {
@@ -85,12 +91,8 @@ function draw() {
             }
         })
 
-        filmsManager.forEach((film, index) => {
-            // console.log(film);
+        filmsManager.forEach((film) => {
             film.drawFilm();
-            // if (film.actorsToSpawn.length === 0) {
-            //     filmsManager.splice(index, 1);
-            // }
         })
     } else {
         textSize(17);
@@ -270,7 +272,6 @@ function spawnActorAndFilmsFromActorId(actor, parentFilm) {
     const callSynchronousApi = async() => {
         const response = await fetch(filmsOfActorUrl);
         const filmsOfActor = await response.json();
-        console.log(filmsOfActor);
         const chosenFilms = typeof parentFilm === 'undefined' ? [] : [parentFilm];
         const capacity = int(random(1,3));
         const newActor = new Actor(actor.name, chosenFilms);
@@ -329,7 +330,7 @@ function chooseRandomActor(people, actorName) {
     while (!foundActor) {
         if (people.results.length === 0) {
             // TO DO: figure out what to do when no actor found
-            console.error("No actor found for actor name [" + actorName + "].");
+            console.warn("No actor found for actor name [" + actorName + "].");
         }
 
         let actorIdx = int(random(people.results.length));
@@ -370,20 +371,23 @@ function chooseRandomCastOfFilm(cast, capacity) {
 }
 
 function yearToCoordinate(year) {
-    let oldFilmBorder = width * 0.10;
-    let coordinate;
-    
-    
-    if (year < 1940 || year > 2019) {
-       coordinate = oldFilmBorder * (year - 1890) / 60;      
-    } else {
-      coordinate = (width - oldFilmBorder) * (year - 1940)/79; // 79 = 2019 - 1940
+    if (filmsManager.length === 0) {
+        var mean
+        if (year > 2000) {
+            mean = 2000;
+        } else if (year < 1940) {
+            mean = 1940;
+        } else {
+            mean = year;
+        }
+        gaussian = new Gaussian(mean, 400);
     }
-    return 50 + coordinate;
+
+    const relative_pos = gaussian.cdf(year);
+    return width * relative_pos;
 }
 
 function getColorFromGenreList(genre_ids) {
-    // TO DO: think about how to convert genre_ids to color
     if (genre_ids.length === 0) {
         return color(100, 100, 100)
     }
@@ -415,6 +419,31 @@ function insertFilmByYear(film, filmList) {
     }
 }
 
-function toggleText() {
-    textOn = !textOn;
-}
+// Gaussian functions - source: https://github.com/errcw/gaussian
+
+// Complementary error function
+// From Numerical Recipes in C 2e p221
+var erfc = function(x) {
+    var z = Math.abs(x);
+    var t = 1 / (1 + z / 2);
+    var r = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 +
+            t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 +
+            t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 +
+            t * (-0.82215223 + t * 0.17087277)))))))))
+    return x >= 0 ? r : 2 - r;
+    };
+    
+    // Models the normal distribution
+    var Gaussian = function(mean, variance) {
+    if (variance <= 0) {
+        throw new Error('Variance must be > 0 (but was ' + variance + ')');
+    }
+        this.mean = mean;
+        this.variance = variance;
+        this.standardDeviation = Math.sqrt(variance);
+    }
+    
+    // Cumulative density function
+    Gaussian.prototype.cdf = function(x) {
+        return 0.5 * erfc(-(x - this.mean) / (this.standardDeviation * Math.sqrt(2)));
+    };
