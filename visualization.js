@@ -5,6 +5,7 @@ let textOn = true;
 let input, greeting;
 let song;
 let gaussian;
+let max_pos = 1;
 
 
 const actorsManager = [];
@@ -45,7 +46,7 @@ function setup() {
     background(0);
     imageMode(CENTER);
     blendMode(ADD);
-    frameRate(40);
+    frameRate(10);
 
     //ask user for input
     input = createInput();
@@ -96,7 +97,7 @@ function draw() {
         })
     } else {
         textSize(17);
-        text("Enter a Name", input.x, input.y + input.height * 2);
+        text("Enter a Film Actor/Actress Name", input.x, input.y + input.height * 2);
         fill( 230, 230, 230);
     }
 }
@@ -152,7 +153,7 @@ class Actor extends Particle {
         this.visited_films = [];
         
         
-        this.speed = random(2,3);
+        this.speed = random(2, 3);
         this.velX = this.getVelocity().x;
         this.velY = this.getVelocity().y;
     }
@@ -172,7 +173,7 @@ class Actor extends Particle {
         this.posX += this.velX;
         this.posY += this.velY;
 
-        if (this.distFromTarget() <= 2) {
+        if (this.distFromTarget() <= 3) {
             if (this.unvisited_films[0].actorsToSpawn.length != 0) {
                 const actorToSpawn = this.unvisited_films[0].actorsToSpawn[0];
                 this.unvisited_films[0].actorsToSpawn.shift();
@@ -200,7 +201,7 @@ class Actor extends Particle {
 
         const xDist = this.unvisited_films[0].posX - this.posX;
         const yDist = this.unvisited_films[0].posY - this.posY;
-        const dist = sq(xDist) + sq(yDist);
+        const dist = sqrt(sq(xDist) + sq(yDist));
         return dist;
     }
 
@@ -229,7 +230,7 @@ class Actor extends Particle {
 
 class Film extends Particle {
     constructor(title, r, g, b, release_year, actorsToSpawn, popularity) {
-        super(600, popularity, r, g, b, createVector(yearToCoordinate(release_year), 50 + random(0, height - 50)));
+        super(500, popularity, r, g, b, createVector(yearToCoordinate(release_year), 50 + random(0, height - 50)));
         super.drawParticle();
         this.title = title;
         this.release_year = release_year;
@@ -381,9 +382,11 @@ function yearToCoordinate(year) {
             mean = year;
         }
         gaussian = new Gaussian(mean, 400);
+        max_pos = gaussian.cdf(2019);
+
     }
 
-    const relative_pos = gaussian.cdf(year);
+    const relative_pos = gaussian.cdf(year) / max_pos;
     return width * relative_pos;
 }
 
