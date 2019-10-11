@@ -13,6 +13,28 @@ const filmsInSimulation = [];
 
 function preload() {
     song = loadSound('The_Cosmos.mp3');
+
+    STATIC_GENRE_MAP = {
+        28: color(255, 0, 0), // "Action"
+        16: color(255, 255, 102), // "Animated"
+        99: color(0, 0, 255), //"Documentary"
+        18: color(204,51,0), //"Drama"
+        10751: color(0, 255, 0), // "Family"
+        14: color(204, 0, 102), //"Fantasy"
+        36: color(102, 153, 153), //"History"
+        35: color(255, 255, 0), //"Comedy"
+        10752: color(0, 102, 255), // "War"
+        80: color(102, 0, 102), // "Crime"
+        10402: color(0, 255, 255), //"Music"
+        9648: color(102, 0, 255), //"Mystery"
+        10749: color(255, 102, 204), //"Romance"
+        878: color(51, 153, 255), //"Sci-Fi"
+        27: color(102, 0, 204), //"Horror"
+        10770: color(0, 204, 0), //"TV Movie"
+        53: color(153, 0, 153), //"Thriller"
+        37: color(255, 204, 0), // "Western"
+        12: color(51, 153, 102), //"Adventure"
+    }
 }
 
 function setup() {
@@ -248,6 +270,7 @@ function spawnActorAndFilmsFromActorId(actor, parentFilm) {
     const callSynchronousApi = async() => {
         const response = await fetch(filmsOfActorUrl);
         const filmsOfActor = await response.json();
+        console.log(filmsOfActor);
         const chosenFilms = typeof parentFilm === 'undefined' ? [] : [parentFilm];
         const capacity = int(random(1,3));
         const newActor = new Actor(actor.name, chosenFilms);
@@ -365,11 +388,19 @@ function getColorFromGenreList(genre_ids) {
         return color(100, 100, 100)
     }
 
-    var genreSum = 0;
+    let r = 0;
+    let g = 0;
+    let b = 0;
     genre_ids.forEach((id) => {
-        genreSum += id;
+        r += red(STATIC_GENRE_MAP[id]);
+        g += green(STATIC_GENRE_MAP[id]);
+        b += blue(STATIC_GENRE_MAP[id]);
     })
-    return color(genreSum % 120, genreSum / 255, genre_ids.length * 20);
+    const discount = max(r, g, b) / 255;
+    r = r / discount;
+    g = g / discount;
+    b = b / discount;
+    return color(r, g, b);
 }
 
 function insertFilmByYear(film, filmList) {
