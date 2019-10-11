@@ -7,7 +7,6 @@ let song;
 let gaussian;
 let max_pos = 1;
 
-
 const actorsManager = [];
 const filmsManager = [];
 const actorsInSimulation = [];
@@ -84,7 +83,6 @@ function draw() {
         input.hide();
         button.hide();
         actorsManager.forEach((actor, index) => {
-            // console.log(actor);
             actor.drawActor();
             actor.updateActor(index);
             if (actor.posX > width) {
@@ -181,9 +179,6 @@ class Actor extends Particle {
                 spawnActorAndFilmsFromActorId(actorToSpawn, this.unvisited_films[0]);
                 
                 this.unvisited_films[0].grow();
-                
-                console.log("actor [" + this.name + "] hit film [" + this.unvisited_films[0].title + "] and spawned actor [" + actorToSpawn.name + "]");
-                console.log(actorsManager);
             }
 
             this.visited_films.push(this.unvisited_films[0]);
@@ -265,9 +260,6 @@ function spawnActorAndFilmsFromActorName(actorName) {
     callApi();    
 }
 
-// actorID: ID of actor
-// actorName: name of the actor
-// return List of length 3 of film JSON objects
 function spawnActorAndFilmsFromActorId(actor, parentFilm) {
     const filmsOfActorUrl = "https://api.themoviedb.org/3/person/" + actor.id + "/movie_credits?language=en-US&api_key=" + API_KEY;
     const callSynchronousApi = async() => {
