@@ -200,19 +200,12 @@ class Film extends Particle {
     drawFilm() {
         //console.log(this.spawnedActors);
         if (this.spawnedActors.length <= 3) {
-<<<<<<< HEAD:visualization.js
           image(this.image, this.posX, this.posY);
           if (textOn) {
             textSize(20);
             fill (0,102,153);
             text(this.title, this.posX, this.posY);
           }
-=======
-            image(this.image, this.posX, this.posY);
-            textSize(20);
-            fill (0,102,153);
-            text(this.title, this.posX, this.posY);
->>>>>>> Latency improvement and bug fixes:p5js-temp-visualization97880591882056901.js
         } else {
             filmsManager.splice(index, index + 1);
             filmsInSimulation.splice(index, index + 1);
