@@ -51,7 +51,7 @@ function setup() {
     input = createInput();
     input.position(50,50);
     
-    button = createButton('generate');
+    button = createButton('start');
     button.position(input.x + input.width, input.y);
     button.mousePressed(start);
 }
@@ -426,19 +426,19 @@ var erfc = function(x) {
             t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 +
             t * (-0.82215223 + t * 0.17087277)))))))))
     return x >= 0 ? r : 2 - r;
-    };
+};
     
-    // Models the normal distribution
-    var Gaussian = function(mean, variance) {
+// Models the normal distribution
+var Gaussian = function(mean, variance) {
     if (variance <= 0) {
         throw new Error('Variance must be > 0 (but was ' + variance + ')');
     }
-        this.mean = mean;
-        this.variance = variance;
-        this.standardDeviation = Math.sqrt(variance);
-    }
-    
-    // Cumulative density function
-    Gaussian.prototype.cdf = function(x) {
-        return 0.5 * erfc(-(x - this.mean) / (this.standardDeviation * Math.sqrt(2)));
-    };
+    this.mean = mean;
+    this.variance = variance;
+    this.standardDeviation = Math.sqrt(variance);
+}
+
+// Cumulative density function
+Gaussian.prototype.cdf = function(x) {
+    return 0.5 * erfc(-(x - this.mean) / (this.standardDeviation * Math.sqrt(2)));
+};
